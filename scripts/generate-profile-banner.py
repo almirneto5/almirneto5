@@ -4,9 +4,7 @@
 from __future__ import annotations
 
 import argparse
-import base64
 import html
-from io import BytesIO
 from pathlib import Path
 from typing import Final
 
@@ -72,12 +70,12 @@ PROFILE_LINES: Final = (
 )
 
 
-def portrait_to_scanline_data_uri(
+def portrait_to_scanline_paths(
     path: Path,
     width: int = PORTRAIT_WIDTH,
     height: int = PORTRAIT_HEIGHT,
 ) -> str:
-    """Convert the GitHub avatar into a neon scanline portrait."""
+    """Convert the GitHub avatar into CSP-safe vector scanlines."""
 
     with Image.open(path) as source:
         grayscale = ImageOps.exif_transpose(source).convert("L")
@@ -169,34 +167,56 @@ def portrait_to_scanline_data_uri(
         )
         density = ImageChops.lighter(density, subject_floor)
         alpha = ImageChops.multiply(density, subject_mask)
-
-        scanlines = Image.new("L", (width, height), 255)
-        scanline_draw = ImageDraw.Draw(scanlines)
-        for y in range(0, height, 4):
-            scanline_draw.rectangle((0, y + 2, width, y + 3), fill=34)
-        alpha = ImageChops.multiply(alpha, scanlines)
         alpha = alpha.filter(ImageFilter.GaussianBlur(0.22))
-
-        portrait = Image.new("RGBA", (width, height))
-        portrait_pixels = portrait.load()
         alpha_pixels = alpha.load()
-        for y in range(height):
-            progress = y / max(1, height - 1)
-            red = round(34 + (139 - 34) * progress)
-            green = round(211 + (92 - 211) * progress)
-            blue = round(238 + (246 - 238) * progress)
-            for x in range(width):
-                portrait_pixels[x, y] = (
-                    red,
-                    green,
-                    blue,
-                    alpha_pixels[x, y],
-                )
 
-        output = BytesIO()
-        portrait.save(output, format="PNG", optimize=True)
-        encoded = base64.b64encode(output.getvalue()).decode("ascii")
-        return f"data:image/png;base64,{encoded}"
+    opacities = (0.22, 0.34, 0.50, 0.72, 0.96)
+    thresholds = (20, 55, 95, 145, 200)
+    commands: list[list[str]] = [[] for _ in opacities]
+
+    def density_level(value: int) -> int | None:
+        selected: int | None = None
+        for index, threshold in enumerate(thresholds):
+            if value < threshold:
+                break
+            selected = index
+        return selected
+
+    x_step = 2
+    y_step = 4
+    for y in range(1, height, y_step):
+        current_level: int | None = None
+        run_start = 0
+        for x in range(0, width, x_step):
+            sample = max(
+                alpha_pixels[x, y],
+                alpha_pixels[min(x + 1, width - 1), y],
+                alpha_pixels[x, min(y + 1, height - 1)],
+            )
+            level = density_level(sample)
+            if level == current_level:
+                continue
+            if current_level is not None:
+                commands[current_level].append(
+                    f"M{run_start} {y}h{x - run_start}"
+                )
+            current_level = level
+            run_start = x
+        if current_level is not None:
+            commands[current_level].append(
+                f"M{run_start} {y}h{width - run_start}"
+            )
+
+    paths: list[str] = []
+    for opacity, path_commands in zip(opacities, commands, strict=True):
+        if not path_commands:
+            continue
+        paths.append(
+            f'<path d="{"".join(path_commands)}" '
+            'fill="none" stroke="url(#portrait-neon)" '
+            f'stroke-width="1.45" stroke-linecap="round" opacity="{opacity}"/>'
+        )
+    return "".join(paths)
 
 
 def line_clip_paths() -> str:
@@ -242,9 +262,8 @@ def render_profile_lines(theme: dict[str, str]) -> str:
     return "".join(lines)
 
 
-def build_svg(theme_name: str, portrait_data_uri: str) -> str:
+def build_svg(theme_name: str, portrait_paths: str) -> str:
     theme = THEMES[theme_name]
-    portrait_href = html.escape(portrait_data_uri, quote=True)
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="560" viewBox="0 0 1180 560" role="img" aria-labelledby="title desc">
   <title id="title">Perfil de Almir Neto em um terminal animado</title>
   <desc id="desc">Foto de perfil de Almir Neto convertida em linhas neon e informações profissionais em um terminal.</desc>
@@ -292,6 +311,7 @@ def build_svg(theme_name: str, portrait_data_uri: str) -> str:
         <animate attributeName="height" values="0;0;470" keyTimes="0;0.06;1" dur="2.55s" begin="0s" fill="freeze"/>
       </rect>
     </mask>
+    <g id="portrait-lines">{portrait_paths}</g>
     {line_clip_paths()}
     <style>
       text, tspan {{ white-space: pre; }}
@@ -327,13 +347,13 @@ def build_svg(theme_name: str, portrait_data_uri: str) -> str:
   <text x="34" y="79" class="visual-title">PROFILE.PICTURE // LIVE</text>
   <text x="548" y="79" class="panel-title">PROFILE.DATA</text>
 
-  <g mask="url(#portrait-reveal)" clip-path="url(#portrait-clip)">
-    <image x="34" y="94" width="470" height="410" href="{portrait_href}" filter="url(#portrait-glow)">
+  <g mask="url(#portrait-reveal)" clip-path="url(#portrait-clip)" filter="url(#portrait-glow)">
+    <use href="#portrait-lines" x="34" y="94">
       <animate attributeName="opacity" values="0.78;1;0.86;1;0.78" dur="3.8s" repeatCount="indefinite"/>
-    </image>
-    <image x="36" y="94" width="470" height="410" href="{portrait_href}" opacity="0.13">
-      <animate attributeName="x" values="36;34;37;34;36" dur="0.72s" repeatCount="indefinite"/>
-    </image>
+    </use>
+    <use href="#portrait-lines" x="34" y="94" opacity="0.13">
+      <animateTransform attributeName="transform" type="translate" values="2 0;0 0;3 0;0 0;2 0" dur="0.72s" repeatCount="indefinite"/>
+    </use>
   </g>
   <rect x="34" y="94" width="470" height="410" rx="12" fill="none" stroke="url(#portrait-neon)" stroke-width="1.5" opacity="0.62"/>
   {render_profile_lines(theme)}
@@ -371,12 +391,12 @@ def main() -> None:
 
     output_dir = args.output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
-    portrait_data_uri = portrait_to_scanline_data_uri(portrait)
+    portrait_paths = portrait_to_scanline_paths(portrait)
 
     for theme_name in THEMES:
         output = output_dir / f"profile-terminal-avatar-{theme_name}.svg"
         output.write_text(
-            build_svg(theme_name, portrait_data_uri),
+            build_svg(theme_name, portrait_paths),
             encoding="utf-8",
         )
         print(f"Generated {output.relative_to(ROOT)}")

@@ -31,12 +31,13 @@ for (const asset of svgAssets) {
 
   if (asset.includes("profile-terminal-avatar-")) {
     assert(
-      /<image\b[^>]*href="data:image\/png;base64,/i.test(svg),
-      `${asset} must embed the avatar rendered as scanlines`,
+      !/<image\b|data:image\//i.test(svg),
+      `${asset} must render the avatar without blocked nested images`,
     );
     assert(
       svg.includes("PROFILE.PICTURE // LIVE") &&
         svg.includes('id="portrait-glow"') &&
+        svg.includes('id="portrait-lines"') &&
         svg.includes('id="portrait-reveal"'),
       `${asset} must keep the animated profile-picture effect`,
     );
@@ -76,7 +77,7 @@ const portraitGenerator = fs.readFileSync(
   "utf8",
 );
 assert(
-  portraitGenerator.includes("portrait_to_scanline_data_uri") &&
+  portraitGenerator.includes("portrait_to_scanline_paths") &&
     portraitGenerator.includes("portrait-reveal"),
   "Portrait generator must keep the scanline conversion and reveal animation",
 );
