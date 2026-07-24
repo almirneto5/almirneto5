@@ -71,7 +71,7 @@ automaticamente todos os dias.
 
 <div align="center">
   <img
-    src="https://raw.githubusercontent.com/almirneto5/almirneto5/main/assets/contribution-game.svg"
+    src="https://raw.githubusercontent.com/almirneto5/almirneto5/main/assets/contribution-game.svg?v=2"
     width="100%"
     alt="Commit Runner, uma visualização espacial animada das contribuições públicas de Almir Neto"
   >
