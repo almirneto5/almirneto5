@@ -1,0 +1,48 @@
+name: Update contribution game
+
+on:
+  schedule:
+    - cron: "37 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-contribution-game
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out the profile repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Generate the contribution game
+        env:
+          GH_USERNAME: ${{ github.repository_owner }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OUTPUT_PATH: assets/contribution-game.svg
+        run: node scripts/generate-contribution-game.mjs
+
+      - name: Commit the updated asset
+        shell: bash
+        run: |
+          if git diff --quiet -- assets/contribution-game.svg; then
+            echo "Contribution game is already current."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- assets/contribution-game.svg
+          git commit -m "chore: update contribution game"
+          git push
