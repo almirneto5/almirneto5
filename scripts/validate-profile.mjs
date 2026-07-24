@@ -15,8 +15,8 @@ assert(
 );
 
 const svgAssets = [
-  "assets/profile-terminal-ascii-dark.svg",
-  "assets/profile-terminal-ascii-light.svg",
+  "assets/profile-terminal-avatar-dark.svg",
+  "assets/profile-terminal-avatar-light.svg",
   "assets/commit-runner.svg",
 ];
 
@@ -29,23 +29,23 @@ for (const asset of svgAssets) {
   assert(!/<script\b|javascript:/i.test(svg), `${asset} contains active script`);
   assert(svg.length < 1_000_000, `${asset} is unexpectedly large`);
 
-  if (asset.includes("profile-terminal-ascii-")) {
+  if (asset.includes("profile-terminal-avatar-")) {
     assert(
-      !/<image\b/i.test(svg),
-      `${asset} must keep the portrait as pure vector text`,
+      /<image\b[^>]*href="data:image\/png;base64,/i.test(svg),
+      `${asset} must embed the avatar rendered as scanlines`,
     );
     assert(
-      svg.includes("VISUAL.MAP") &&
-        svg.includes('class="ascii"') &&
+      svg.includes("PROFILE.PICTURE // LIVE") &&
+        svg.includes('id="portrait-glow"') &&
         svg.includes('id="portrait-reveal"'),
-      `${asset} must keep the animated ASCII portrait`,
+      `${asset} must keep the animated profile-picture effect`,
     );
   }
 }
 
 const readmeAssets = [
-  "assets/profile-terminal-ascii-dark.svg",
-  "assets/profile-terminal-ascii-light.svg",
+  "assets/profile-terminal-avatar-dark.svg",
+  "assets/profile-terminal-avatar-light.svg",
   "assets/commit-runner.svg",
 ];
 
@@ -58,25 +58,27 @@ for (const asset of readmeAssets) {
 }
 
 const portraitSource = fs.readFileSync(
-  path.join(root, "assets", "portrait-london-ascii-source.jpg"),
+  path.join(root, "assets", "profile-avatar-source.png"),
 );
 assert(
-  portraitSource.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])),
-  "ASCII portrait source must be a JPEG",
+  portraitSource
+    .subarray(0, 8)
+    .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+  "Profile portrait source must be a PNG",
 );
 assert(
   portraitSource.length < 1_000_000,
   "ASCII portrait source is unexpectedly large",
 );
 
-const asciiGenerator = fs.readFileSync(
+const portraitGenerator = fs.readFileSync(
   path.join(root, "scripts", "generate-profile-banner.py"),
   "utf8",
 );
 assert(
-  asciiGenerator.includes("portrait_to_ascii") &&
-    asciiGenerator.includes("portrait-reveal"),
-  "ASCII generator must keep the portrait conversion and reveal animation",
+  portraitGenerator.includes("portrait_to_scanline_data_uri") &&
+    portraitGenerator.includes("portrait-reveal"),
+  "Portrait generator must keep the scanline conversion and reveal animation",
 );
 
 const contributionGame = fs.readFileSync(

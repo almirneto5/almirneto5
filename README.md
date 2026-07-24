@@ -1,11 +1,11 @@
 <div align="center">
   <a href="https://almirneto.com">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/almirneto5/almirneto5/main/assets/profile-terminal-ascii-dark.svg">
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/almirneto5/almirneto5/main/assets/profile-terminal-avatar-dark.svg">
       <img
-        src="https://raw.githubusercontent.com/almirneto5/almirneto5/main/assets/profile-terminal-ascii-light.svg"
+        src="https://raw.githubusercontent.com/almirneto5/almirneto5/main/assets/profile-terminal-avatar-light.svg"
         width="100%"
-        alt="Retrato de Almir Neto em ASCII neon dentro de um terminal animado"
+        alt="Foto de perfil de Almir Neto convertida em linhas neon dentro de um terminal animado"
       >
     </picture>
   </a>
