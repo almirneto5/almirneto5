@@ -15,8 +15,8 @@ assert(
 );
 
 const svgAssets = [
-  "assets/profile-terminal-photo-dark.svg",
-  "assets/profile-terminal-photo-light.svg",
+  "assets/profile-terminal-ascii-dark.svg",
+  "assets/profile-terminal-ascii-light.svg",
   "assets/commit-runner.svg",
 ];
 
@@ -29,23 +29,23 @@ for (const asset of svgAssets) {
   assert(!/<script\b|javascript:/i.test(svg), `${asset} contains active script`);
   assert(svg.length < 1_000_000, `${asset} is unexpectedly large`);
 
-  if (asset.includes("profile-terminal-photo-")) {
+  if (asset.includes("profile-terminal-ascii-")) {
     assert(
-      /<image\b[^>]*href="data:image\/(?:jpeg|png);base64,/i.test(svg),
-      `${asset} must embed the optimized portrait`,
+      !/<image\b/i.test(svg),
+      `${asset} must keep the portrait as pure vector text`,
     );
     assert(
-      svg.includes("PORTRAIT.FEED"),
-      `${asset} must use the photographic portrait panel`,
+      svg.includes("VISUAL.MAP") &&
+        svg.includes('class="ascii"') &&
+        svg.includes('id="portrait-reveal"'),
+      `${asset} must keep the animated ASCII portrait`,
     );
   }
 }
 
 const readmeAssets = [
-  "assets/profile-terminal-photo-dark.webp",
-  "assets/profile-terminal-photo-dark.jpg",
-  "assets/profile-terminal-photo-light.webp",
-  "assets/profile-terminal-photo-light.jpg",
+  "assets/profile-terminal-ascii-dark.svg",
+  "assets/profile-terminal-ascii-light.svg",
   "assets/commit-runner.svg",
 ];
 
@@ -57,45 +57,26 @@ for (const asset of readmeAssets) {
   assert(readme.includes(rawUrl), `README does not reference ${asset}`);
 }
 
-for (const asset of readmeAssets.filter((name) => name.endsWith(".webp"))) {
-  const contents = fs.readFileSync(path.join(root, asset));
-  assert.equal(contents.subarray(0, 4).toString("ascii"), "RIFF");
-  assert.equal(contents.subarray(8, 12).toString("ascii"), "WEBP");
-  assert(contents.includes(Buffer.from("ANIM")), `${asset} must be animated`);
-  assert(contents.length < 1_000_000, `${asset} is unexpectedly large`);
-}
+const portraitSource = fs.readFileSync(
+  path.join(root, "assets", "portrait-london-ascii-source.jpg"),
+);
+assert(
+  portraitSource.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])),
+  "ASCII portrait source must be a JPEG",
+);
+assert(
+  portraitSource.length < 1_000_000,
+  "ASCII portrait source is unexpectedly large",
+);
 
-for (const asset of readmeAssets.filter((name) => name.endsWith(".jpg"))) {
-  const contents = fs.readFileSync(path.join(root, asset));
-  assert(
-    contents.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])),
-    `${asset} must be a JPEG`,
-  );
-  assert(contents.length < 1_000_000, `${asset} is unexpectedly large`);
-}
-
-const hologramSources = [
-  "assets/portrait-london.png",
-  "assets/profile-terminal-base-dark.jpg",
-  "assets/profile-terminal-base-light.jpg",
-  "scripts/generate-hologram-banner.py",
-];
-
-for (const asset of hologramSources) {
-  assert(fs.existsSync(path.join(root, asset)), `Missing ${asset}`);
-}
-
-const hologramGenerator = fs.readFileSync(
-  path.join(root, "scripts", "generate-hologram-banner.py"),
+const asciiGenerator = fs.readFileSync(
+  path.join(root, "scripts", "generate-profile-banner.py"),
   "utf8",
 );
 assert(
-  hologramGenerator.includes("IDENTITY_SCAN // LIVE"),
-  "Hologram generator must keep the live identity scanner",
-);
-assert(
-  hologramGenerator.includes("build_band_mask"),
-  "Hologram generator must keep the animated scanning band",
+  asciiGenerator.includes("portrait_to_ascii") &&
+    asciiGenerator.includes("portrait-reveal"),
+  "ASCII generator must keep the portrait conversion and reveal animation",
 );
 
 const contributionGame = fs.readFileSync(
