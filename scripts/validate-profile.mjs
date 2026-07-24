@@ -17,7 +17,7 @@ assert(
 const expectedAssets = [
   "assets/profile-terminal-dark.svg",
   "assets/profile-terminal-light.svg",
-  "assets/contribution-game.svg",
+  "assets/commit-runner.svg",
 ];
 
 for (const asset of expectedAssets) {
@@ -35,7 +35,7 @@ for (const asset of expectedAssets) {
 }
 
 const contributionGame = fs.readFileSync(
-  path.join(root, "assets", "contribution-game.svg"),
+  path.join(root, "assets", "commit-runner.svg"),
   "utf8",
 );
 assert(
