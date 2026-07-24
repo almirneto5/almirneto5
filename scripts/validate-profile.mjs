@@ -15,8 +15,8 @@ assert(
 );
 
 const svgAssets = [
-  "assets/profile-terminal-avatar-dark.svg",
-  "assets/profile-terminal-avatar-light.svg",
+  "assets/profile-terminal-dots-dark.svg",
+  "assets/profile-terminal-dots-light.svg",
   "assets/commit-runner.svg",
 ];
 
@@ -29,24 +29,28 @@ for (const asset of svgAssets) {
   assert(!/<script\b|javascript:/i.test(svg), `${asset} contains active script`);
   assert(svg.length < 1_000_000, `${asset} is unexpectedly large`);
 
-  if (asset.includes("profile-terminal-avatar-")) {
+  if (asset.includes("profile-terminal-dots-")) {
     assert(
       !/<image\b|data:image\//i.test(svg),
       `${asset} must render the avatar without blocked nested images`,
     );
     assert(
       svg.includes("PROFILE.PICTURE // LIVE") &&
-        svg.includes('id="portrait-glow"') &&
-        svg.includes('id="portrait-lines"') &&
+        svg.includes('id="portrait-dots"') &&
         svg.includes('id="portrait-reveal"'),
       `${asset} must keep the animated profile-picture effect`,
+    );
+    assert(
+      !svg.includes("portrait-glow") &&
+        (svg.match(/<circle\b/g) ?? []).length > 10_000,
+      `${asset} must use a crisp, high-resolution dot matrix`,
     );
   }
 }
 
 const readmeAssets = [
-  "assets/profile-terminal-avatar-dark.svg",
-  "assets/profile-terminal-avatar-light.svg",
+  "assets/profile-terminal-dots-dark.svg",
+  "assets/profile-terminal-dots-light.svg",
   "assets/commit-runner.svg",
 ];
 
@@ -77,9 +81,9 @@ const portraitGenerator = fs.readFileSync(
   "utf8",
 );
 assert(
-  portraitGenerator.includes("portrait_to_scanline_paths") &&
+  portraitGenerator.includes("portrait_to_dot_matrix") &&
     portraitGenerator.includes("portrait-reveal"),
-  "Portrait generator must keep the scanline conversion and reveal animation",
+  "Portrait generator must keep the dot-matrix conversion and reveal animation",
 );
 
 const contributionGame = fs.readFileSync(
