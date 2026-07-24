@@ -31,14 +31,15 @@
 <h2 align="center">Olá, eu sou o Almir 👋</h2>
 
 <p align="center">
-  Estudante de Ciência da Computação, interessado em backend, APIs e automação.<br>
-  Gosto de transformar problemas em sistemas simples, seguros e fáceis de manter.
+  Desenvolvedor backend com foco em Node.js e Go.<br>
+  Estudante de Ciência da Computação na UNIFAGOC e em formação contínua pela Alura.
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/Go-0d1117?style=flat-square&logo=go&logoColor=00ADD8" alt="Go">
+  <img src="https://img.shields.io/badge/Node.js-0d1117?style=flat-square&logo=nodedotjs&logoColor=5FA04E" alt="Node.js">
   <img src="https://img.shields.io/badge/Python-0d1117?style=flat-square&logo=python&logoColor=3776AB" alt="Python">
   <img src="https://img.shields.io/badge/FastAPI-0d1117?style=flat-square&logo=fastapi&logoColor=009688" alt="FastAPI">
-  <img src="https://img.shields.io/badge/Node.js-0d1117?style=flat-square&logo=nodedotjs&logoColor=5FA04E" alt="Node.js">
   <img src="https://img.shields.io/badge/REST_APIs-0d1117?style=flat-square&logo=swagger&logoColor=85EA2D" alt="REST APIs">
   <img src="https://img.shields.io/badge/Git-0d1117?style=flat-square&logo=git&logoColor=F05032" alt="Git">
 </p>
