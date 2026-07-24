@@ -4,16 +4,20 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import html
 from pathlib import Path
 from typing import Final
 
-from PIL import Image, ImageEnhance, ImageOps
-
 
 ROOT: Final = Path(__file__).resolve().parents[1]
-DEFAULT_AVATAR: Final = ROOT / "assets" / "avatar.png"
-CHARSET: Final = " .,:;irsXA253hMHGS#9B&@"
+DEFAULT_PORTRAIT: Final = ROOT / "assets" / "portrait-london.png"
+IMAGE_MIME_TYPES: Final = {
+    ".jpeg": "image/jpeg",
+    ".jpg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+}
 
 THEMES: Final = {
     "dark": {
@@ -63,31 +67,16 @@ PROFILE_LINES: Final = (
 )
 
 
-def avatar_to_ascii(path: Path, width: int = 70, height: int = 42) -> list[str]:
-    """Convert the avatar into terminal-friendly ASCII without external services."""
+def portrait_to_data_uri(path: Path) -> str:
+    """Embed the optimized portrait so GitHub can render it inside the SVG."""
 
-    with Image.open(path) as source:
-        image = ImageOps.fit(
-            source.convert("L"),
-            (width, height),
-            method=Image.Resampling.LANCZOS,
-            centering=(0.5, 0.45),
-        )
-        image = ImageOps.autocontrast(image, cutoff=1)
-        image = ImageEnhance.Contrast(image).enhance(1.22)
-        image = ImageOps.invert(image)
-        pixels = list(image.get_flattened_data())
+    mime_type = IMAGE_MIME_TYPES.get(path.suffix.lower())
+    if mime_type is None:
+        supported = ", ".join(sorted(IMAGE_MIME_TYPES))
+        raise ValueError(f"Unsupported portrait format. Expected one of: {supported}")
 
-    max_index = len(CHARSET) - 1
-    rows: list[str] = []
-    for row in range(height):
-        start = row * width
-        chars = (
-            CHARSET[round((pixels[start + column] / 255) * max_index)]
-            for column in range(width)
-        )
-        rows.append("".join(chars).rstrip())
-    return rows
+    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+    return f"data:{mime_type};base64,{encoded}"
 
 
 def line_clip_paths() -> str:
@@ -133,18 +122,9 @@ def render_profile_lines(theme: dict[str, str]) -> str:
     return "".join(lines)
 
 
-def render_ascii(rows: list[str]) -> str:
-    tspans = []
-    for index, row in enumerate(rows):
-        y = 94 + index * 9.25
-        tspans.append(
-            f'<tspan x="34" y="{y:.2f}">{html.escape(row or " ")}</tspan>'
-        )
-    return "".join(tspans)
-
-
-def build_svg(theme_name: str, ascii_rows: list[str]) -> str:
+def build_svg(theme_name: str, portrait_data_uri: str) -> str:
     theme = THEMES[theme_name]
+    portrait_href = html.escape(portrait_data_uri, quote=True)
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="560" viewBox="0 0 1180 560" role="img" aria-labelledby="title desc">
   <title id="title">Perfil de Almir Neto em um terminal animado</title>
   <desc id="desc">Retrato em ASCII e informações profissionais de Almir Neto com efeitos de terminal.</desc>
@@ -172,10 +152,17 @@ def build_svg(theme_name: str, ascii_rows: list[str]) -> str:
     <pattern id="scanlines" width="4" height="4" patternUnits="userSpaceOnUse">
       <rect width="4" height="1" fill="{theme["cyan"]}" opacity="0.035"/>
     </pattern>
+    <linearGradient id="portrait-shade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0.64" stop-color="{theme["background"]}" stop-opacity="0"/>
+      <stop offset="1" stop-color="{theme["background"]}" stop-opacity="0.48"/>
+    </linearGradient>
     <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
       <feGaussianBlur stdDeviation="3" result="blur"/>
       <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
+    <clipPath id="portrait-clip">
+      <rect x="34" y="94" width="470" height="410" rx="12"/>
+    </clipPath>
     <mask id="portrait-reveal">
       <rect x="0" y="0" width="520" height="470" fill="white">
         <animate attributeName="height" values="0;0;470" keyTimes="0;0.06;1" dur="2.55s" begin="0s" fill="freeze"/>
@@ -184,9 +171,9 @@ def build_svg(theme_name: str, ascii_rows: list[str]) -> str:
     {line_clip_paths()}
     <style>
       text, tspan {{ white-space: pre; }}
-      .ascii {{ font: 8.25px "Courier New", Consolas, monospace; fill: url(#neon); letter-spacing: -0.18px; }}
       .terminal {{ font: 12px "Courier New", Consolas, monospace; fill: {theme["muted"]}; }}
       .panel-title {{ font: 700 11px "Courier New", Consolas, monospace; fill: {theme["cyan"]}; letter-spacing: 2px; }}
+      .photo-label {{ font: 700 11px "Courier New", Consolas, monospace; fill: {theme["text"]}; letter-spacing: 1.2px; }}
       .section {{ font: 700 12px "Courier New", Consolas, monospace; fill: {theme["purple"]}; letter-spacing: 1.4px; }}
       .key {{ font: 700 14px "Courier New", Consolas, monospace; fill: {theme["cyan"]}; }}
       .value {{ font: 14px "Courier New", Consolas, monospace; fill: {theme["text"]}; }}
@@ -213,12 +200,17 @@ def build_svg(theme_name: str, ascii_rows: list[str]) -> str:
 
   <rect x="16" y="58" width="506" height="476" rx="14" fill="{theme["panel"]}" opacity="{theme["panel_opacity"]}" stroke="{theme["line"]}"/>
   <rect x="530" y="58" width="634" height="476" rx="14" fill="{theme["panel"]}" opacity="{theme["panel_opacity"]}" stroke="{theme["line"]}"/>
-  <text x="34" y="79" class="panel-title">VISUAL.MAP</text>
+  <text x="34" y="79" class="panel-title">PORTRAIT.FEED</text>
   <text x="548" y="79" class="panel-title">PROFILE.DATA</text>
 
-  <g mask="url(#portrait-reveal)">
-    <text class="ascii" filter="url(#glow)">{render_ascii(ascii_rows)}</text>
+  <g mask="url(#portrait-reveal)" clip-path="url(#portrait-clip)">
+    <image x="34" y="94" width="470" height="410" preserveAspectRatio="xMidYMid slice" href="{portrait_href}"/>
+    <rect x="34" y="94" width="470" height="410" fill="url(#portrait-shade)"/>
+    <rect x="34" y="94" width="470" height="410" fill="url(#scanlines)" opacity="0.22"/>
   </g>
+  <rect x="34" y="94" width="470" height="410" rx="12" fill="none" stroke="url(#neon)" stroke-width="1.5" opacity="0.62"/>
+  <rect x="46" y="464" width="132" height="26" rx="6" fill="{theme["background"]}" opacity="0.76"/>
+  <text x="58" y="482" class="photo-label">LONDON · 2026</text>
 
   {render_profile_lines(theme)}
 
@@ -239,21 +231,33 @@ def build_svg(theme_name: str, ascii_rows: list[str]) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--avatar", type=Path, default=DEFAULT_AVATAR)
+    parser.add_argument(
+        "--portrait",
+        "--avatar",
+        dest="portrait",
+        type=Path,
+        default=DEFAULT_PORTRAIT,
+    )
     parser.add_argument("--output-dir", type=Path, default=ROOT / "assets")
     args = parser.parse_args()
 
-    avatar = args.avatar.resolve()
-    if not avatar.is_file():
-        raise SystemExit(f"Avatar not found: {avatar}")
+    portrait = args.portrait.resolve()
+    if not portrait.is_file():
+        raise SystemExit(f"Portrait not found: {portrait}")
 
     output_dir = args.output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
-    ascii_rows = avatar_to_ascii(avatar)
+    try:
+        portrait_data_uri = portrait_to_data_uri(portrait)
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
 
     for theme_name in THEMES:
-        output = output_dir / f"profile-terminal-{theme_name}.svg"
-        output.write_text(build_svg(theme_name, ascii_rows), encoding="utf-8")
+        output = output_dir / f"profile-terminal-photo-{theme_name}.svg"
+        output.write_text(
+            build_svg(theme_name, portrait_data_uri),
+            encoding="utf-8",
+        )
         print(f"Generated {output.relative_to(ROOT)}")
 
 

@@ -14,13 +14,13 @@ assert(
   "README contains a placeholder",
 );
 
-const expectedAssets = [
-  "assets/profile-terminal-dark.svg",
-  "assets/profile-terminal-light.svg",
+const svgAssets = [
+  "assets/profile-terminal-photo-dark.svg",
+  "assets/profile-terminal-photo-light.svg",
   "assets/commit-runner.svg",
 ];
 
-for (const asset of expectedAssets) {
+for (const asset of svgAssets) {
   const absolutePath = path.join(root, asset);
   assert(fs.existsSync(absolutePath), `Missing ${asset}`);
   const svg = fs.readFileSync(absolutePath, "utf8");
@@ -29,9 +29,49 @@ for (const asset of expectedAssets) {
   assert(!/<script\b|javascript:/i.test(svg), `${asset} contains active script`);
   assert(svg.length < 1_000_000, `${asset} is unexpectedly large`);
 
+  if (asset.includes("profile-terminal-photo-")) {
+    assert(
+      /<image\b[^>]*href="data:image\/(?:jpeg|png);base64,/i.test(svg),
+      `${asset} must embed the optimized portrait`,
+    );
+    assert(
+      svg.includes("PORTRAIT.FEED"),
+      `${asset} must use the photographic portrait panel`,
+    );
+  }
+}
+
+const readmeAssets = [
+  "assets/profile-terminal-photo-dark.webp",
+  "assets/profile-terminal-photo-dark.jpg",
+  "assets/profile-terminal-photo-light.webp",
+  "assets/profile-terminal-photo-light.jpg",
+  "assets/commit-runner.svg",
+];
+
+for (const asset of readmeAssets) {
+  const absolutePath = path.join(root, asset);
+  assert(fs.existsSync(absolutePath), `Missing ${asset}`);
   const rawUrl =
     `https://raw.githubusercontent.com/almirneto5/almirneto5/main/${asset}`;
   assert(readme.includes(rawUrl), `README does not reference ${asset}`);
+}
+
+for (const asset of readmeAssets.filter((name) => name.endsWith(".webp"))) {
+  const contents = fs.readFileSync(path.join(root, asset));
+  assert.equal(contents.subarray(0, 4).toString("ascii"), "RIFF");
+  assert.equal(contents.subarray(8, 12).toString("ascii"), "WEBP");
+  assert(contents.includes(Buffer.from("ANIM")), `${asset} must be animated`);
+  assert(contents.length < 1_000_000, `${asset} is unexpectedly large`);
+}
+
+for (const asset of readmeAssets.filter((name) => name.endsWith(".jpg"))) {
+  const contents = fs.readFileSync(path.join(root, asset));
+  assert(
+    contents.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])),
+    `${asset} must be a JPEG`,
+  );
+  assert(contents.length < 1_000_000, `${asset} is unexpectedly large`);
 }
 
 const contributionGame = fs.readFileSync(
