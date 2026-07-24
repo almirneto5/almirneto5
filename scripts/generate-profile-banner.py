@@ -8,13 +8,24 @@ import html
 from pathlib import Path
 from typing import Final
 
-from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageOps
+from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 
 
 ROOT: Final = Path(__file__).resolve().parents[1]
 DEFAULT_PORTRAIT: Final = ROOT / "assets" / "profile-avatar-source.png"
-PORTRAIT_WIDTH: Final = 470
-PORTRAIT_HEIGHT: Final = 410
+DOT_GRID_SIZE: Final = 106
+DOT_CANVAS_SIZE: Final = 410
+DOT_PALETTE: Final = (
+    "#0D2638",
+    "#12384D",
+    "#174E66",
+    "#166A82",
+    "#1687A2",
+    "#21ABC4",
+    "#5FD3E4",
+    "#D7F6FA",
+)
+DOT_RADII: Final = (0.62, 0.72, 0.82, 0.94, 1.06, 1.18, 1.30, 1.42)
 
 THEMES: Final = {
     "dark": {
@@ -70,153 +81,45 @@ PROFILE_LINES: Final = (
 )
 
 
-def portrait_to_scanline_paths(
+def portrait_to_dot_matrix(
     path: Path,
-    width: int = PORTRAIT_WIDTH,
-    height: int = PORTRAIT_HEIGHT,
+    grid_size: int = DOT_GRID_SIZE,
+    canvas_size: int = DOT_CANVAS_SIZE,
 ) -> str:
-    """Convert the GitHub avatar into CSP-safe vector scanlines."""
+    """Rebuild the complete GitHub avatar as crisp vector dots."""
 
     with Image.open(path) as source:
-        grayscale = ImageOps.exif_transpose(source).convert("L")
-        source_width, source_height = grayscale.size
-        grayscale = grayscale.crop(
-            (
-                round(source_width * 0.04),
-                0,
-                round(source_width * 0.98),
-                round(source_height * 0.80),
-            )
-        )
-        crop_width, crop_height = grayscale.size
-
-        subject_mask = Image.new("L", grayscale.size, 0)
-        subject_draw = ImageDraw.Draw(subject_mask)
-
-        def point(x: float, y: float) -> tuple[int, int]:
-            return round(crop_width * x), round(crop_height * y)
-
-        subject_draw.polygon(
-            tuple(
-                point(x, y)
-                for x, y in (
-                    (0.23, 0.18),
-                    (0.31, 0.06),
-                    (0.42, 0.02),
-                    (0.60, 0.03),
-                    (0.70, 0.10),
-                    (0.74, 0.22),
-                    (0.79, 0.35),
-                    (0.77, 0.49),
-                    (0.70, 0.62),
-                    (0.59, 0.69),
-                    (0.45, 0.66),
-                    (0.34, 0.58),
-                    (0.27, 0.46),
-                    (0.23, 0.32),
-                )
-            ),
-            fill=255,
-        )
-        subject_draw.polygon(
-            tuple(
-                point(x, y)
-                for x, y in (
-                    (0.22, 0.55),
-                    (0.39, 0.61),
-                    (0.63, 0.58),
-                    (0.77, 0.60),
-                    (0.90, 0.72),
-                    (1.00, 1.00),
-                    (0.00, 1.00),
-                    (0.03, 0.80),
-                    (0.10, 0.67),
-                )
-            ),
-            fill=255,
-        )
-        subject_mask = subject_mask.filter(
-            ImageFilter.GaussianBlur(max(crop_width, crop_height) * 0.006)
-        )
-
-        grayscale = grayscale.resize(
-            (width, height),
-            resample=Image.Resampling.LANCZOS,
-        )
-        subject_mask = subject_mask.resize(
-            (width, height),
-            resample=Image.Resampling.LANCZOS,
+        grayscale = ImageOps.fit(
+            ImageOps.exif_transpose(source).convert("L"),
+            (grid_size, grid_size),
+            method=Image.Resampling.LANCZOS,
         )
         grayscale = ImageOps.autocontrast(grayscale, cutoff=1)
-        grayscale = ImageEnhance.Contrast(grayscale).enhance(1.22)
+        grayscale = ImageEnhance.Contrast(grayscale).enhance(1.08)
         grayscale = grayscale.filter(
-            ImageFilter.UnsharpMask(radius=1.4, percent=170, threshold=2)
+            ImageFilter.UnsharpMask(radius=0.65, percent=125, threshold=1)
         )
+        pixels = list(grayscale.get_flattened_data())
 
-        density = ImageOps.invert(grayscale)
-        edges = grayscale.filter(ImageFilter.FIND_EDGES)
-        edges = ImageOps.autocontrast(edges, cutoff=1)
-        edges = ImageEnhance.Contrast(edges).enhance(2.3)
-        edges = edges.point(
-            lambda value: 0 if value < 28 else min(255, (value - 28) * 3)
-        )
-        density = density.point(lambda value: round(value * 0.86))
-        density = ImageChops.lighter(density, edges)
-        subject_floor = subject_mask.point(
-            lambda value: round(value * 0.14)
-        )
-        density = ImageChops.lighter(density, subject_floor)
-        alpha = ImageChops.multiply(density, subject_mask)
-        alpha = alpha.filter(ImageFilter.GaussianBlur(0.22))
-        alpha_pixels = alpha.load()
-
-    opacities = (0.22, 0.34, 0.50, 0.72, 0.96)
-    thresholds = (20, 55, 95, 145, 200)
-    commands: list[list[str]] = [[] for _ in opacities]
-
-    def density_level(value: int) -> int | None:
-        selected: int | None = None
-        for index, threshold in enumerate(thresholds):
-            if value < threshold:
-                break
-            selected = index
-        return selected
-
-    x_step = 2
-    y_step = 4
-    for y in range(1, height, y_step):
-        current_level: int | None = None
-        run_start = 0
-        for x in range(0, width, x_step):
-            sample = max(
-                alpha_pixels[x, y],
-                alpha_pixels[min(x + 1, width - 1), y],
-                alpha_pixels[x, min(y + 1, height - 1)],
-            )
-            level = density_level(sample)
-            if level == current_level:
-                continue
-            if current_level is not None:
-                commands[current_level].append(
-                    f"M{run_start} {y}h{x - run_start}"
-                )
-            current_level = level
-            run_start = x
-        if current_level is not None:
-            commands[current_level].append(
-                f"M{run_start} {y}h{width - run_start}"
+    spacing = canvas_size / grid_size
+    dots_by_level: list[list[str]] = [[] for _ in DOT_PALETTE]
+    max_level = len(DOT_PALETTE) - 1
+    for row in range(grid_size):
+        cy = (row + 0.5) * spacing
+        row_offset = row * grid_size
+        for column in range(grid_size):
+            luminance = pixels[row_offset + column] / 255
+            level = min(max_level, round((luminance**0.92) * max_level))
+            cx = (column + 0.5) * spacing
+            dots_by_level[level].append(
+                f'<circle cx="{cx:.2f}" cy="{cy:.2f}" '
+                f'r="{DOT_RADII[level]:.2f}"/>'
             )
 
-    paths: list[str] = []
-    for opacity, path_commands in zip(opacities, commands, strict=True):
-        if not path_commands:
-            continue
-        paths.append(
-            f'<path d="{"".join(path_commands)}" '
-            'fill="none" stroke="url(#portrait-neon)" '
-            f'stroke-width="1.45" stroke-linecap="round" opacity="{opacity}"/>'
-        )
-    return "".join(paths)
+    groups: list[str] = []
+    for color, dots in zip(DOT_PALETTE, dots_by_level, strict=True):
+        groups.append(f'<g fill="{color}">{"".join(dots)}</g>')
+    return "".join(groups)
 
 
 def line_clip_paths() -> str:
@@ -262,11 +165,11 @@ def render_profile_lines(theme: dict[str, str]) -> str:
     return "".join(lines)
 
 
-def build_svg(theme_name: str, portrait_paths: str) -> str:
+def build_svg(theme_name: str, portrait_dots: str) -> str:
     theme = THEMES[theme_name]
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="560" viewBox="0 0 1180 560" role="img" aria-labelledby="title desc">
   <title id="title">Perfil de Almir Neto em um terminal animado</title>
-  <desc id="desc">Foto de perfil de Almir Neto convertida em linhas neon e informações profissionais em um terminal.</desc>
+  <desc id="desc">Foto de perfil de Almir Neto reconstruída por pontos claros e escuros em um terminal.</desc>
   <defs>
     <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="{theme["background"]}"/>
@@ -299,19 +202,15 @@ def build_svg(theme_name: str, portrait_paths: str) -> str:
     <pattern id="scanlines" width="4" height="4" patternUnits="userSpaceOnUse">
       <rect width="4" height="1" fill="{theme["cyan"]}" opacity="0.035"/>
     </pattern>
-    <filter id="portrait-glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="1.7" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
     <clipPath id="portrait-clip">
       <rect x="34" y="94" width="470" height="410" rx="12"/>
     </clipPath>
-    <mask id="portrait-reveal">
-      <rect x="0" y="0" width="520" height="470" fill="white">
-        <animate attributeName="height" values="0;0;470" keyTimes="0;0.06;1" dur="2.55s" begin="0s" fill="freeze"/>
+    <mask id="portrait-reveal" maskUnits="userSpaceOnUse" x="34" y="94" width="470" height="410">
+      <rect x="34" y="94" width="470" height="410" fill="white">
+        <animate attributeName="height" values="0;0;410" keyTimes="0;0.06;1" dur="2.55s" begin="0s" fill="freeze"/>
       </rect>
     </mask>
-    <g id="portrait-lines">{portrait_paths}</g>
+    <g id="portrait-dots">{portrait_dots}</g>
     {line_clip_paths()}
     <style>
       text, tspan {{ white-space: pre; }}
@@ -347,12 +246,9 @@ def build_svg(theme_name: str, portrait_paths: str) -> str:
   <text x="34" y="79" class="visual-title">PROFILE.PICTURE // LIVE</text>
   <text x="548" y="79" class="panel-title">PROFILE.DATA</text>
 
-  <g mask="url(#portrait-reveal)" clip-path="url(#portrait-clip)" filter="url(#portrait-glow)">
-    <use href="#portrait-lines" x="34" y="94">
-      <animate attributeName="opacity" values="0.78;1;0.86;1;0.78" dur="3.8s" repeatCount="indefinite"/>
-    </use>
-    <use href="#portrait-lines" x="34" y="94" opacity="0.13">
-      <animateTransform attributeName="transform" type="translate" values="2 0;0 0;3 0;0 0;2 0" dur="0.72s" repeatCount="indefinite"/>
+  <g mask="url(#portrait-reveal)" clip-path="url(#portrait-clip)">
+    <use href="#portrait-dots" x="64" y="94">
+      <animate attributeName="opacity" values="0.92;1;0.96;1;0.92" dur="3.8s" repeatCount="indefinite"/>
     </use>
   </g>
   <rect x="34" y="94" width="470" height="410" rx="12" fill="none" stroke="url(#portrait-neon)" stroke-width="1.5" opacity="0.62"/>
@@ -391,12 +287,12 @@ def main() -> None:
 
     output_dir = args.output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
-    portrait_paths = portrait_to_scanline_paths(portrait)
+    portrait_dots = portrait_to_dot_matrix(portrait)
 
     for theme_name in THEMES:
-        output = output_dir / f"profile-terminal-avatar-{theme_name}.svg"
+        output = output_dir / f"profile-terminal-dots-{theme_name}.svg"
         output.write_text(
-            build_svg(theme_name, portrait_paths),
+            build_svg(theme_name, portrait_dots),
             encoding="utf-8",
         )
         print(f"Generated {output.relative_to(ROOT)}")
