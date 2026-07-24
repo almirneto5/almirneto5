@@ -1,9 +1,11 @@
 <div align="center">
   <a href="https://almirneto.com">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/almirneto5/almirneto5/main/assets/profile-terminal-dark.svg">
+      <source media="(prefers-color-scheme: dark)" type="image/webp" srcset="https://raw.githubusercontent.com/almirneto5/almirneto5/main/assets/profile-terminal-photo-dark.webp">
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/almirneto5/almirneto5/main/assets/profile-terminal-photo-dark.jpg">
+      <source type="image/webp" srcset="https://raw.githubusercontent.com/almirneto5/almirneto5/main/assets/profile-terminal-photo-light.webp">
       <img
-        src="https://raw.githubusercontent.com/almirneto5/almirneto5/main/assets/profile-terminal-light.svg"
+        src="https://raw.githubusercontent.com/almirneto5/almirneto5/main/assets/profile-terminal-photo-light.jpg"
         width="100%"
         alt="Perfil profissional de Almir Neto em um terminal animado"
       >
