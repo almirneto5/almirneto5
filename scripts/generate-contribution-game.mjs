@@ -14,7 +14,7 @@ const TRACK_WIDTH = TRACK_END_X - TRACK_START_X;
 const TRACK_BASE_Y = 132;
 const LOOP_SECONDS = 16;
 const MAX_TARGETS = 18;
-const DEFAULT_OUTPUT = "assets/contribution-game.svg";
+const DEFAULT_OUTPUT = "assets/commit-runner.svg";
 const TRANSIENT_STATUS = new Set([429, 500, 502, 503, 504]);
 const MONTH_NAMES = [
   "JAN",
@@ -372,7 +372,7 @@ export function buildSvg({ username, totalContributions, weeks }) {
       ? '<text x="500" y="178" text-anchor="middle" class="empty">AGUARDANDO ATIVIDADE PÚBLICA</text>'
       : "";
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-labelledby="title desc">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-labelledby="title desc" data-game="commit-runner">
   <title id="title">Commit Runner de ${escapeXml(safeUsername)}</title>
   <desc id="desc">Uma nave percorre uma rota espacial criada com as contribuições públicas de ${escapeXml(safeUsername)} nos últimos doze meses.</desc>
   <defs>
