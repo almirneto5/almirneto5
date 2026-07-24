@@ -3,6 +3,7 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+  aggregateMonths,
   buildSvg,
   normalizeCells,
   resolveOutputPath,
@@ -11,12 +12,18 @@ import {
 } from "../scripts/generate-contribution-game.mjs";
 
 function fixtureWeeks() {
+  const start = new Date(Date.UTC(2025, 6, 27));
+
   return Array.from({ length: 52 }, (_, column) => ({
-    contributionDays: Array.from({ length: 7 }, (_, weekday) => ({
-      contributionCount: (column + weekday) % 9,
-      date: `2026-01-${String((column + weekday) % 28 + 1).padStart(2, "0")}`,
-      weekday,
-    })),
+    contributionDays: Array.from({ length: 7 }, (_, weekday) => {
+      const date = new Date(start);
+      date.setUTCDate(start.getUTCDate() + column * 7 + weekday);
+      return {
+        contributionCount: (column + weekday) % 9,
+        date: date.toISOString().slice(0, 10),
+        weekday,
+      };
+    }),
   }));
 }
 
@@ -48,7 +55,21 @@ test("selects only active cells and respects the limit", () => {
   assert(targets.every((target) => target.count > 0));
 });
 
-test("builds an accessible animated SVG", () => {
+test("aggregates a complete rolling 12-month activity route", () => {
+  const cells = normalizeCells(fixtureWeeks());
+  const months = aggregateMonths(cells);
+  const includedMonths = new Set(months.map((month) => month.key));
+  assert.equal(months.length, 12);
+  assert.equal(
+    months.reduce((sum, month) => sum + month.contributions, 0),
+    cells
+      .filter((cell) => includedMonths.has(cell.date?.slice(0, 7)))
+      .reduce((sum, cell) => sum + cell.count, 0),
+  );
+  assert(months.some((month) => month.activeDays > 0));
+});
+
+test("builds an accessible arcade SVG without copying the native grid", () => {
   const svg = buildSvg({
     username: "almirneto5",
     totalContributions: 1234,
@@ -56,7 +77,19 @@ test("builds an accessible animated SVG", () => {
   });
   assert.match(svg, /^<svg/);
   assert.match(svg, /aria-labelledby="title desc"/);
-  assert.match(svg, /animateTransform/);
-  assert.match(svg, /SCORE 1\.234/);
+  assert.match(svg, /animateMotion/);
+  assert.match(svg, /COMMIT RUNNER/);
+  assert.match(svg, /PUBLIC XP 1\.234/);
+  assert(!svg.includes("contribution-grid"));
   assert(!svg.includes("<script"));
+});
+
+test("uses a clear syncing state when no public activity is available", () => {
+  const svg = buildSvg({
+    username: "almirneto5",
+    totalContributions: 0,
+    weeks: [],
+  });
+  assert.match(svg, /PUBLIC XP SYNCING/);
+  assert.match(svg, /AGUARDANDO ATIVIDADE PÚBLICA/);
 });

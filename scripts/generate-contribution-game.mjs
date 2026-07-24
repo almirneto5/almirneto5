@@ -6,17 +6,30 @@ import { fileURLToPath } from "node:url";
 
 const COLS = 52;
 const ROWS = 7;
-const CELL = 10;
-const STEP = 13;
-const GRID_X = 72;
-const GRID_Y = 58;
-const SHIP_Y = 192;
-const WIDTH = 820;
-const HEIGHT = 230;
-const LOOP_SECONDS = 18;
-const MAX_TARGETS = 10;
+const WIDTH = 1000;
+const HEIGHT = 270;
+const TRACK_START_X = 62;
+const TRACK_END_X = 938;
+const TRACK_WIDTH = TRACK_END_X - TRACK_START_X;
+const TRACK_BASE_Y = 132;
+const LOOP_SECONDS = 16;
+const MAX_TARGETS = 18;
 const DEFAULT_OUTPUT = "assets/contribution-game.svg";
 const TRANSIENT_STATUS = new Set([429, 500, 502, 503, 504]);
+const MONTH_NAMES = [
+  "JAN",
+  "FEV",
+  "MAR",
+  "ABR",
+  "MAI",
+  "JUN",
+  "JUL",
+  "AGO",
+  "SET",
+  "OUT",
+  "NOV",
+  "DEZ",
+];
 
 const QUERY = `
   query ProfileContributions($login: String!) {
@@ -107,8 +120,18 @@ export async function fetchCalendar(username, token, fetchImpl = fetch) {
   throw new Error("GitHub GraphQL request did not complete");
 }
 
+function normalizeCount(value) {
+  const count = Number(value);
+  return Number.isFinite(count) && count > 0 ? Math.floor(count) : 0;
+}
+
+function isIsoDate(value) {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
 export function normalizeCells(weeks) {
-  const recentWeeks = weeks.slice(-COLS);
+  const safeWeeks = Array.isArray(weeks) ? weeks : [];
+  const recentWeeks = safeWeeks.slice(-COLS);
   const paddedWeeks = [
     ...Array.from({ length: COLS - recentWeeks.length }, () => ({
       contributionDays: [],
@@ -118,18 +141,22 @@ export function normalizeCells(weeks) {
 
   const cells = [];
   for (const [column, week] of paddedWeeks.entries()) {
+    const contributionDays = Array.isArray(week?.contributionDays)
+      ? week.contributionDays
+      : [];
     const daysByWeekday = new Map(
-      week.contributionDays.map((day) => [day.weekday, day]),
+      contributionDays
+        .filter((day) => Number.isInteger(day?.weekday))
+        .map((day) => [day.weekday, day]),
     );
+
     for (let row = 0; row < ROWS; row += 1) {
       const day = daysByWeekday.get(row);
       cells.push({
         column,
         row,
-        count: day?.contributionCount ?? 0,
-        date: day?.date ?? null,
-        x: GRID_X + column * STEP,
-        y: GRID_Y + row * STEP,
+        count: normalizeCount(day?.contributionCount),
+        date: isIsoDate(day?.date) ? day.date : null,
       });
     }
   }
@@ -137,18 +164,58 @@ export function normalizeCells(weeks) {
 }
 
 export function selectTargets(cells, limit = MAX_TARGETS) {
+  const safeLimit = Math.max(0, Math.min(36, Math.floor(Number(limit) || 0)));
   return [...cells]
-    .filter((cell) => cell.count > 0)
+    .filter((cell) => cell.count > 0 && isIsoDate(cell.date))
     .sort(
       (left, right) =>
         right.count - left.count ||
         String(right.date).localeCompare(String(left.date)),
     )
-    .slice(0, limit)
-    .sort(
-      (left, right) =>
-        left.column - right.column || left.row - right.row,
-    );
+    .slice(0, safeLimit)
+    .sort((left, right) => String(left.date).localeCompare(String(right.date)));
+}
+
+function monthKey(date) {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthFromOffset(anchor, offset) {
+  return new Date(
+    Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() + offset, 1),
+  );
+}
+
+export function aggregateMonths(cells) {
+  const datedCells = cells.filter((cell) => isIsoDate(cell.date));
+  const latestDate = datedCells
+    .map((cell) => cell.date)
+    .sort()
+    .at(-1);
+  const anchor = latestDate
+    ? new Date(`${latestDate}T00:00:00Z`)
+    : new Date();
+
+  const months = Array.from({ length: 12 }, (_, index) => {
+    const date = monthFromOffset(anchor, index - 11);
+    return {
+      key: monthKey(date),
+      label: MONTH_NAMES[date.getUTCMonth()],
+      year: date.getUTCFullYear(),
+      contributions: 0,
+      activeDays: 0,
+    };
+  });
+  const monthsByKey = new Map(months.map((month) => [month.key, month]));
+
+  for (const cell of datedCells) {
+    const month = monthsByKey.get(cell.date.slice(0, 7));
+    if (!month) continue;
+    month.contributions += cell.count;
+    if (cell.count > 0) month.activeDays += 1;
+  }
+
+  return months;
 }
 
 function escapeXml(value) {
@@ -168,116 +235,119 @@ function round(value) {
   return Number(value.toFixed(4));
 }
 
+function trackY(ratio) {
+  return (
+    TRACK_BASE_Y +
+    Math.sin(ratio * Math.PI * 3.2) * 28 +
+    Math.sin(ratio * Math.PI * 7) * 8
+  );
+}
+
+function trackPoint(ratio) {
+  return {
+    x: TRACK_START_X + ratio * TRACK_WIDTH,
+    y: trackY(ratio),
+  };
+}
+
+function buildTrackPath() {
+  return Array.from({ length: 81 }, (_, index) => {
+    const ratio = index / 80;
+    const point = trackPoint(ratio);
+    return `${index === 0 ? "M" : "L"} ${round(point.x)} ${round(point.y)}`;
+  }).join(" ");
+}
+
 function colorForCount(count, maximum) {
-  if (count === 0) return "#161B22";
+  if (count === 0) return "#30363D";
   const intensity = Math.log1p(count) / Math.log1p(Math.max(1, maximum));
-  if (intensity < 0.26) return "#0E4429";
-  if (intensity < 0.5) return "#006D32";
-  if (intensity < 0.76) return "#26A641";
+  if (intensity < 0.34) return "#22D3EE";
+  if (intensity < 0.67) return "#8B5CF6";
   return "#39D353";
 }
 
-function eventTime(column, direction) {
-  const forward = 0.035 + (column / (COLS - 1)) * 0.43;
-  return direction === "forward" ? forward : 1 - forward;
-}
-
-function renderGrid(cells, targets) {
-  const targetKeys = new Set(
-    targets.map((target) => `${target.column}:${target.row}`),
-  );
-  const maximum = Math.max(1, ...cells.map((cell) => cell.count));
-
-  return cells
-    .map((cell) => {
-      const color = colorForCount(cell.count, maximum);
-      const target = targetKeys.has(`${cell.column}:${cell.row}`);
-      const title = cell.date
-        ? `${formatNumber(cell.count)} contribuições em ${cell.date}`
-        : "Sem dados";
-
-      if (!target) {
-        return `<rect x="${cell.x}" y="${cell.y}" width="${CELL}" height="${CELL}" rx="2" fill="${color}"><title>${escapeXml(title)}</title></rect>`;
-      }
-
-      const first = Math.min(
-        eventTime(cell.column, "forward"),
-        eventTime(cell.column, "backward"),
-      );
-      const second = Math.max(
-        eventTime(cell.column, "forward"),
-        eventTime(cell.column, "backward"),
-      );
-      const pulse = 0.008;
-      return `<rect x="${cell.x}" y="${cell.y}" width="${CELL}" height="${CELL}" rx="2" fill="${color}" filter="url(#cellGlow)">
-  <title>${escapeXml(title)}</title>
-  <animate attributeName="fill" dur="${LOOP_SECONDS}s" repeatCount="indefinite"
-    keyTimes="0;${round(first)};${round(first + pulse)};${round(second)};${round(second + pulse)};1"
-    values="${color};${color};#B7FFCE;${color};#B7FFCE;${color}"/>
-</rect>`;
-    })
-    .join("\n");
-}
-
-function renderShots(targets) {
-  const shots = [];
-  for (const direction of ["forward", "backward"]) {
-    const ordered =
-      direction === "forward" ? targets : [...targets].reverse();
-    for (const target of ordered) {
-      const impact = eventTime(target.column, direction);
-      const launch = impact - 0.018;
-      const fade = impact + 0.012;
-      const cx = target.x + CELL / 2;
-      const cy = target.y + CELL / 2;
-
-      shots.push(`<circle cx="${cx}" cy="${SHIP_Y - 12}" r="2.4" fill="#7EE787" opacity="0">
-  <animate attributeName="cy" dur="${LOOP_SECONDS}s" repeatCount="indefinite"
-    keyTimes="0;${round(launch)};${round(impact)};1"
-    values="${SHIP_Y - 12};${SHIP_Y - 12};${cy};${cy}"/>
-  <animate attributeName="opacity" dur="${LOOP_SECONDS}s" repeatCount="indefinite"
-    keyTimes="0;${round(launch)};${round(impact)};${round(fade)};1"
-    values="0;1;1;0;0"/>
-</circle>
-<circle cx="${cx}" cy="${cy}" r="0" fill="none" stroke="#56D364" stroke-width="2">
-  <animate attributeName="r" dur="${LOOP_SECONDS}s" repeatCount="indefinite"
-    keyTimes="0;${round(impact)};${round(fade)};1"
-    values="0;0;10;10"/>
-  <animate attributeName="opacity" dur="${LOOP_SECONDS}s" repeatCount="indefinite"
-    keyTimes="0;${round(impact)};${round(fade)};1"
-    values="0;1;0;0"/>
-</circle>`);
-    }
-  }
-  return shots.join("\n");
-}
-
 function renderStars() {
-  return Array.from({ length: 34 }, (_, index) => {
-    const x = 15 + ((index * 97) % (WIDTH - 30));
-    const y = 46 + ((index * 43) % (HEIGHT - 58));
-    const duration = 1.2 + (index % 5) * 0.37;
-    return `<circle cx="${x}" cy="${y}" r="${index % 4 === 0 ? 1.3 : 0.8}" fill="#8B949E">
-  <animate attributeName="opacity" values="0.15;0.9;0.15" dur="${duration.toFixed(2)}s" begin="${(index % 7) * -0.21}s" repeatCount="indefinite"/>
+  return Array.from({ length: 46 }, (_, index) => {
+    const x = 18 + ((index * 137) % (WIDTH - 36));
+    const y = 48 + ((index * 61) % 138);
+    const duration = 1.4 + (index % 6) * 0.31;
+    return `<circle cx="${x}" cy="${y}" r="${index % 5 === 0 ? 1.25 : 0.7}" fill="#8B949E">
+  <animate attributeName="opacity" values="0.12;0.72;0.12" dur="${duration.toFixed(2)}s" begin="${(index % 8) * -0.19}s" repeatCount="indefinite"/>
 </circle>`;
   }).join("\n");
 }
 
-function renderShip() {
-  const startX = GRID_X + CELL / 2;
-  const endX = GRID_X + (COLS - 1) * STEP + CELL / 2;
-  return `<g transform="translate(${startX},${SHIP_Y})" filter="url(#shipGlow)">
-  <g>
-    <path d="M0 -18 L8 5 L4 3 L0 8 L-4 3 L-8 5 Z" fill="#58A6FF" stroke="#79C0FF" stroke-width="1"/>
-    <path d="M-8 5 L-14 11 L-4 7 Z M8 5 L14 11 L4 7 Z" fill="#388BFD"/>
-    <circle cx="0" cy="-7" r="2.5" fill="#DDF4FF"/>
-    <path d="M-3 8 L3 8 L0 18 Z" fill="#F0883E">
-      <animate attributeName="opacity" values="0.45;1;0.55;1" dur="0.2s" repeatCount="indefinite"/>
-    </path>
-  </g>
-  <animateTransform attributeName="transform" type="translate" dur="${LOOP_SECONDS}s" repeatCount="indefinite"
-    keyTimes="0;0.5;1"
-    values="${startX},${SHIP_Y};${endX},${SHIP_Y};${startX},${SHIP_Y}"/>
+function renderMonthMarkers(months) {
+  const maximum = Math.max(1, ...months.map((month) => month.contributions));
+
+  return months
+    .map((month, index) => {
+      const ratio = months.length === 1 ? 0.5 : index / (months.length - 1);
+      const point = trackPoint(ratio);
+      const color = colorForCount(month.contributions, maximum);
+      const intensity =
+        month.contributions > 0
+          ? Math.log1p(month.contributions) / Math.log1p(maximum)
+          : 0;
+      const radius = round(4 + intensity * 4);
+      const title = `${formatNumber(month.contributions)} contribuições públicas em ${month.label} ${month.year}`;
+
+      return `<g>
+  <title>${escapeXml(title)}</title>
+  <line x1="${round(point.x)}" y1="${round(point.y + 12)}" x2="${round(point.x)}" y2="218" stroke="#30363D" stroke-width="1" stroke-dasharray="2 5"/>
+  <circle cx="${round(point.x)}" cy="${round(point.y)}" r="${radius + 5}" fill="none" stroke="${color}" opacity="${month.contributions > 0 ? "0.34" : "0.12"}">
+    <animate attributeName="r" values="${radius + 3};${radius + 7};${radius + 3}" dur="${(2.4 + index * 0.08).toFixed(2)}s" begin="${(index * -0.17).toFixed(2)}s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="${round(point.x)}" cy="${round(point.y)}" r="${radius}" fill="${color}" filter="${month.contributions > 0 ? "url(#orbGlow)" : "none"}"/>
+  <text x="${round(point.x)}" y="236" text-anchor="middle" class="month">${month.label}</text>
+</g>`;
+    })
+    .join("\n");
+}
+
+function renderTargets(targets) {
+  const maximum = Math.max(1, ...targets.map((target) => target.count));
+
+  return targets
+    .map((target, index) => {
+      const ordinal = target.column * ROWS + target.row;
+      const ratio = ordinal / (COLS * ROWS - 1);
+      const point = trackPoint(ratio);
+      const yOffset = ((target.row + index) % 3 - 1) * 11;
+      const y = point.y + yOffset;
+      const color = colorForCount(target.count, maximum);
+      const radius = round(3.2 + Math.log1p(target.count) * 0.8);
+      const impact = 0.055 + ratio * 0.86;
+      const fade = Math.min(0.965, impact + 0.025);
+      const title = `${formatNumber(target.count)} contribuições em ${target.date}`;
+
+      return `<g>
+  <title>${escapeXml(title)}</title>
+  <circle cx="${round(point.x)}" cy="${round(y)}" r="${radius + 5}" fill="${color}" opacity="0.12">
+    <animate attributeName="opacity" dur="${LOOP_SECONDS}s" repeatCount="indefinite"
+      keyTimes="0;${round(impact)};${round(fade)};0.98;1"
+      values="0.12;0.35;0;0;0.12"/>
+  </circle>
+  <path d="M ${round(point.x - radius)} ${round(y)} H ${round(point.x + radius)} M ${round(point.x)} ${round(y - radius)} V ${round(y + radius)}"
+    stroke="${color}" stroke-width="2" stroke-linecap="round" filter="url(#orbGlow)">
+    <animate attributeName="opacity" dur="${LOOP_SECONDS}s" repeatCount="indefinite"
+      keyTimes="0;${round(impact)};${round(fade)};0.98;1"
+      values="1;1;0;0;1"/>
+  </path>
+</g>`;
+    })
+    .join("\n");
+}
+
+function renderShip(trackPath) {
+  return `<g filter="url(#shipGlow)">
+  <animateMotion dur="${LOOP_SECONDS}s" repeatCount="indefinite" rotate="auto" path="${trackPath}"/>
+  <path d="M16 0 L-9 -9 L-5 -2 L-14 0 L-5 2 L-9 9 Z" fill="#58A6FF" stroke="#A5D6FF" stroke-width="1"/>
+  <path d="M-7 -7 L-14 -12 L-11 -3 Z M-7 7 L-14 12 L-11 3 Z" fill="#8B5CF6"/>
+  <circle cx="4" cy="0" r="2.5" fill="#E6EDF3"/>
+  <path d="M-14 -3 L-24 0 L-14 3 Z" fill="#F0883E">
+    <animate attributeName="opacity" values="0.45;1;0.55;1" dur="0.18s" repeatCount="indefinite"/>
+  </path>
 </g>`;
 }
 
@@ -285,59 +355,88 @@ export function buildSvg({ username, totalContributions, weeks }) {
   const safeUsername = validateUsername(username);
   const cells = normalizeCells(weeks);
   const targets = selectTargets(cells);
-  const year = new Date().getUTCFullYear();
+  const months = aggregateMonths(cells);
+  const trackPath = buildTrackPath();
+  const contributionSum = cells.reduce((sum, cell) => sum + cell.count, 0);
+  const normalizedTotal = normalizeCount(totalContributions);
+  const score = normalizedTotal || contributionSum;
+  const firstMonth = months[0];
+  const lastMonth = months.at(-1);
+  const dateRange =
+    firstMonth.year === lastMonth.year
+      ? `${firstMonth.label} — ${lastMonth.label} ${lastMonth.year}`
+      : `${firstMonth.label} ${firstMonth.year} — ${lastMonth.label} ${lastMonth.year}`;
+  const scoreLabel = score > 0 ? `PUBLIC XP ${formatNumber(score)}` : "PUBLIC XP SYNCING";
+  const emptyState =
+    targets.length === 0
+      ? '<text x="500" y="178" text-anchor="middle" class="empty">AGUARDANDO ATIVIDADE PÚBLICA</text>'
+      : "";
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-labelledby="title desc">
-  <title id="title">Contribution Rocket Game de ${escapeXml(safeUsername)}</title>
-  <desc id="desc">Uma nave animada percorre o calendário público de contribuições de ${escapeXml(safeUsername)}.</desc>
+  <title id="title">Commit Runner de ${escapeXml(safeUsername)}</title>
+  <desc id="desc">Uma nave percorre uma rota espacial criada com as contribuições públicas de ${escapeXml(safeUsername)} nos últimos doze meses.</desc>
   <defs>
     <linearGradient id="gameBackground" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#050816"/>
-      <stop offset="0.55" stop-color="#0D1117"/>
+      <stop offset="0.52" stop-color="#0D1117"/>
       <stop offset="1" stop-color="#07131D"/>
     </linearGradient>
     <linearGradient id="border" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#22D3EE"/>
+      <stop offset="0.52" stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#39D353"/>
+    </linearGradient>
+    <linearGradient id="trackGradient" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#22D3EE"/>
       <stop offset="0.5" stop-color="#8B5CF6"/>
       <stop offset="1" stop-color="#39D353"/>
     </linearGradient>
-    <filter id="shipGlow" x="-80%" y="-80%" width="260%" height="260%">
-      <feGaussianBlur stdDeviation="2.8" result="blur"/>
+    <filter id="shipGlow" x="-120%" y="-120%" width="340%" height="340%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
       <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
-    <filter id="cellGlow" x="-100%" y="-100%" width="300%" height="300%">
-      <feGaussianBlur stdDeviation="1.8" result="blur"/>
+    <filter id="orbGlow" x="-140%" y="-140%" width="380%" height="380%">
+      <feGaussianBlur stdDeviation="2.2" result="blur"/>
       <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
     <style>
-      .label { font: 700 11px "Courier New", Consolas, monospace; letter-spacing: 1.5px; fill: #22D3EE; }
-      .status { font: 11px "Courier New", Consolas, monospace; fill: #8B949E; }
+      .eyebrow { font: 700 12px "Courier New", Consolas, monospace; letter-spacing: 1.7px; fill: #22D3EE; }
+      .meta { font: 11px "Courier New", Consolas, monospace; fill: #8B949E; }
       .score { font: 700 12px "Courier New", Consolas, monospace; fill: #7EE787; }
+      .month { font: 700 10px "Courier New", Consolas, monospace; fill: #8B949E; letter-spacing: 0.8px; }
+      .empty { font: 11px "Courier New", Consolas, monospace; fill: #6E7681; letter-spacing: 1.2px; }
     </style>
   </defs>
 
-  <rect x="0" y="0" width="${WIDTH}" height="${HEIGHT}" rx="16" fill="url(#gameBackground)"/>
+  <rect width="${WIDTH}" height="${HEIGHT}" rx="18" fill="url(#gameBackground)"/>
   ${renderStars()}
-  <text x="24" y="27" class="label">CONTRIBUTION DEFENSE // ${year}</text>
-  <circle cx="618" cy="23" r="4" fill="#39D353">
+
+  <text x="26" y="30" class="eyebrow">COMMIT RUNNER // ${escapeXml(dateRange)}</text>
+  <circle cx="778" cy="26" r="4" fill="#39D353">
     <animate attributeName="opacity" values="1;0.2;1" dur="1.1s" repeatCount="indefinite"/>
   </circle>
-  <text x="630" y="27" class="status">LIVE</text>
-  <text x="796" y="27" text-anchor="end" class="score">SCORE ${escapeXml(formatNumber(totalContributions))}</text>
-  <line x1="24" y1="39" x2="796" y2="39" stroke="#21262D"/>
+  <text x="790" y="30" class="meta">AUTO PLAY</text>
+  <text x="974" y="30" text-anchor="end" class="score">${escapeXml(scoreLabel)}</text>
+  <line x1="26" y1="43" x2="974" y2="43" stroke="#21262D"/>
 
-  <g id="contribution-grid">
-${renderGrid(cells, targets)}
-  </g>
-  <g id="shots">
-${renderShots(targets)}
-  </g>
-  ${renderShip()}
+  <path d="${trackPath}" fill="none" stroke="#161B22" stroke-width="10" stroke-linecap="round"/>
+  <path d="${trackPath}" fill="none" stroke="url(#trackGradient)" stroke-width="2" stroke-linecap="round" stroke-dasharray="2 8" opacity="0.72">
+    <animate attributeName="stroke-dashoffset" from="0" to="-40" dur="2.2s" repeatCount="indefinite"/>
+  </path>
 
-  <text x="24" y="216" class="status">@${escapeXml(safeUsername)} · dados públicos atualizados diariamente</text>
-  <text x="796" y="216" text-anchor="end" class="status">◀ AUTO PILOT ▶</text>
-  <rect x="2" y="2" width="${WIDTH - 4}" height="${HEIGHT - 4}" rx="14" fill="none" stroke="url(#border)" stroke-width="2" opacity="0.75">
-    <animate attributeName="opacity" values="0.45;0.9;0.45" dur="3.4s" repeatCount="indefinite"/>
+  <g id="month-orbits">
+${renderMonthMarkers(months)}
+  </g>
+  <g id="public-contribution-energy">
+${renderTargets(targets)}
+  </g>
+${emptyState}
+  ${renderShip(trackPath)}
+
+  <text x="26" y="258" class="meta">@${escapeXml(safeUsername)} · CONTRIBUIÇÕES PÚBLICAS · ATUALIZAÇÃO DIÁRIA</text>
+  <text x="974" y="258" text-anchor="end" class="meta">PRIVATE ACTIVITY STAYS PRIVATE</text>
+  <rect x="2" y="2" width="${WIDTH - 4}" height="${HEIGHT - 4}" rx="16" fill="none" stroke="url(#border)" stroke-width="2" opacity="0.72">
+    <animate attributeName="opacity" values="0.42;0.88;0.42" dur="3.6s" repeatCount="indefinite"/>
   </rect>
 </svg>
 `;

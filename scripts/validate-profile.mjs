@@ -9,7 +9,10 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const readmePath = path.join(root, "README.md");
 const readme = fs.readFileSync(readmePath, "utf8");
 
-assert(!/YOUR_|TODO|example\.com/i.test(readme), "README contains a placeholder");
+assert(
+  !/YOUR_|\bTODO\b|example\.com/i.test(readme),
+  "README contains a placeholder",
+);
 
 const expectedAssets = [
   "assets/profile-terminal-dark.svg",
@@ -30,6 +33,19 @@ for (const asset of expectedAssets) {
     `https://raw.githubusercontent.com/almirneto5/almirneto5/main/${asset}`;
   assert(readme.includes(rawUrl), `README does not reference ${asset}`);
 }
+
+const contributionGame = fs.readFileSync(
+  path.join(root, "assets", "contribution-game.svg"),
+  "utf8",
+);
+assert(
+  /COMMIT RUNNER/.test(contributionGame),
+  "Contribution game must use the compact arcade layout",
+);
+assert(
+  !/contribution-grid/.test(contributionGame),
+  "Contribution game must not duplicate the native calendar grid",
+);
 
 const workflow = fs.readFileSync(
   path.join(root, ".github", "workflows", "update-contribution-game.yml"),
