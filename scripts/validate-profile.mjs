@@ -74,6 +74,30 @@ for (const asset of readmeAssets.filter((name) => name.endsWith(".jpg"))) {
   assert(contents.length < 1_000_000, `${asset} is unexpectedly large`);
 }
 
+const hologramSources = [
+  "assets/portrait-london.png",
+  "assets/profile-terminal-base-dark.jpg",
+  "assets/profile-terminal-base-light.jpg",
+  "scripts/generate-hologram-banner.py",
+];
+
+for (const asset of hologramSources) {
+  assert(fs.existsSync(path.join(root, asset)), `Missing ${asset}`);
+}
+
+const hologramGenerator = fs.readFileSync(
+  path.join(root, "scripts", "generate-hologram-banner.py"),
+  "utf8",
+);
+assert(
+  hologramGenerator.includes("IDENTITY_SCAN // LIVE"),
+  "Hologram generator must keep the live identity scanner",
+);
+assert(
+  hologramGenerator.includes("build_band_mask"),
+  "Hologram generator must keep the animated scanning band",
+);
+
 const contributionGame = fs.readFileSync(
   path.join(root, "assets", "commit-runner.svg"),
   "utf8",
