@@ -109,7 +109,7 @@ def portrait_to_dot_matrix(
         row_offset = row * grid_size
         for column in range(grid_size):
             luminance = pixels[row_offset + column] / 255
-            level = min(max_level, round((luminance**0.92) * max_level))
+            level = min(max_level, round((luminance**0.55) * max_level))
             cx = (column + 0.5) * spacing
             dots_by_level[level].append(
                 f'<circle cx="{cx:.2f}" cy="{cy:.2f}" '
@@ -290,7 +290,7 @@ def main() -> None:
     portrait_dots = portrait_to_dot_matrix(portrait)
 
     for theme_name in THEMES:
-        output = output_dir / f"profile-terminal-dots-{theme_name}.svg"
+        output = output_dir / f"profile-terminal-london-dots-{theme_name}.svg"
         output.write_text(
             build_svg(theme_name, portrait_dots),
             encoding="utf-8",

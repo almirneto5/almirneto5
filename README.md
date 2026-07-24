@@ -1,9 +1,9 @@
 <div align="center">
   <a href="https://almirneto.com">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/almirneto5/almirneto5/main/assets/profile-terminal-dots-dark.svg">
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/almirneto5/almirneto5/main/assets/profile-terminal-london-dots-dark.svg">
       <img
-        src="https://raw.githubusercontent.com/almirneto5/almirneto5/main/assets/profile-terminal-dots-light.svg"
+        src="https://raw.githubusercontent.com/almirneto5/almirneto5/main/assets/profile-terminal-london-dots-light.svg"
         width="100%"
         alt="Foto de perfil de Almir Neto reconstruída por pontos claros e escuros em um terminal animado"
       >
