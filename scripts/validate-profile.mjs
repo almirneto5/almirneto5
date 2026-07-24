@@ -15,8 +15,8 @@ assert(
 );
 
 const svgAssets = [
-  "assets/profile-terminal-dots-dark.svg",
-  "assets/profile-terminal-dots-light.svg",
+  "assets/profile-terminal-london-dots-dark.svg",
+  "assets/profile-terminal-london-dots-light.svg",
   "assets/commit-runner.svg",
 ];
 
@@ -29,7 +29,7 @@ for (const asset of svgAssets) {
   assert(!/<script\b|javascript:/i.test(svg), `${asset} contains active script`);
   assert(svg.length < 1_000_000, `${asset} is unexpectedly large`);
 
-  if (asset.includes("profile-terminal-dots-")) {
+  if (asset.includes("profile-terminal-london-dots-")) {
     assert(
       !/<image\b|data:image\//i.test(svg),
       `${asset} must render the avatar without blocked nested images`,
@@ -49,8 +49,8 @@ for (const asset of svgAssets) {
 }
 
 const readmeAssets = [
-  "assets/profile-terminal-dots-dark.svg",
-  "assets/profile-terminal-dots-light.svg",
+  "assets/profile-terminal-london-dots-dark.svg",
+  "assets/profile-terminal-london-dots-light.svg",
   "assets/commit-runner.svg",
 ];
 
