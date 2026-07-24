@@ -75,6 +75,7 @@ def avatar_to_ascii(path: Path, width: int = 70, height: int = 42) -> list[str]:
         )
         image = ImageOps.autocontrast(image, cutoff=1)
         image = ImageEnhance.Contrast(image).enhance(1.22)
+        image = ImageOps.invert(image)
         pixels = list(image.get_flattened_data())
 
     max_index = len(CHARSET) - 1
