@@ -300,29 +300,29 @@
   <g id="public-contribution-energy">
 <g>
   <title>18 contribuições em 2026-07-23</title>
-  <circle cx="798.0331" cy="152.3132" r="10.5556" fill="#39D353" opacity="0.12">
+  <circle cx="781.1405" cy="152.0832" r="10.5556" fill="#39D353" opacity="0.12">
     <animate attributeName="opacity" dur="16s" repeatCount="indefinite"
-      keyTimes="0;0.7776;0.8026;0.98;1"
+      keyTimes="0;0.761;0.786;0.98;1"
       values="0.12;0.35;0;0;0.12"/>
   </circle>
-  <path d="M 792.4775 152.3132 H 803.5887 M 798.0331 146.7576 V 157.8688"
+  <path d="M 775.5849 152.0832 H 786.6961 M 781.1405 146.5276 V 157.6388"
     stroke="#39D353" stroke-width="2" stroke-linecap="round" filter="url(#orbGlow)">
     <animate attributeName="opacity" dur="16s" repeatCount="indefinite"
-      keyTimes="0;0.7776;0.8026;0.98;1"
+      keyTimes="0;0.761;0.786;0.98;1"
       values="1;1;0;0;1"/>
   </path>
 </g>
 <g>
   <title>7 contribuições em 2026-07-24</title>
-  <circle cx="800.4463" cy="141.3276" r="9.8636" fill="#39D353" opacity="0.12">
+  <circle cx="783.5537" cy="141.1213" r="9.8636" fill="#39D353" opacity="0.12">
     <animate attributeName="opacity" dur="16s" repeatCount="indefinite"
-      keyTimes="0;0.78;0.805;0.98;1"
+      keyTimes="0;0.7634;0.7884;0.98;1"
       values="0.12;0.35;0;0;0.12"/>
   </circle>
-  <path d="M 795.5827 141.3276 H 805.3099 M 800.4463 136.464 V 146.1912"
+  <path d="M 778.6901 141.1213 H 788.4173 M 783.5537 136.2577 V 145.9849"
     stroke="#39D353" stroke-width="2" stroke-linecap="round" filter="url(#orbGlow)">
     <animate attributeName="opacity" dur="16s" repeatCount="indefinite"
-      keyTimes="0;0.78;0.805;0.98;1"
+      keyTimes="0;0.7634;0.7884;0.98;1"
       values="1;1;0;0;1"/>
   </path>
 </g>
