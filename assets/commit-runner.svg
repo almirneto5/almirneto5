@@ -300,43 +300,43 @@
   <g id="public-contribution-energy">
 <g>
   <title>18 contribuições em 2026-07-23</title>
-  <circle cx="730.4628" cy="152.5047" r="10.5556" fill="#39D353" opacity="0.12">
+  <circle cx="713.5702" cy="153.2034" r="10.5556" fill="#39D353" opacity="0.12">
     <animate attributeName="opacity" dur="16s" repeatCount="indefinite"
-      keyTimes="0;0.7113;0.7363;0.98;1"
+      keyTimes="0;0.6947;0.7197;0.98;1"
       values="0.12;0.35;0;0;0.12"/>
   </circle>
-  <path d="M 724.9072 152.5047 H 736.0184 M 730.4628 146.9491 V 158.0603"
+  <path d="M 708.0146 153.2034 H 719.1258 M 713.5702 147.6478 V 158.759"
     stroke="#39D353" stroke-width="2" stroke-linecap="round" filter="url(#orbGlow)">
     <animate attributeName="opacity" dur="16s" repeatCount="indefinite"
-      keyTimes="0;0.7113;0.7363;0.98;1"
+      keyTimes="0;0.6947;0.7197;0.98;1"
       values="1;1;0;0;1"/>
   </path>
 </g>
 <g>
   <title>7 contribuições em 2026-07-24</title>
-  <circle cx="732.876" cy="141.4167" r="9.8636" fill="#39D353" opacity="0.12">
+  <circle cx="715.9835" cy="142.1015" r="9.8636" fill="#39D353" opacity="0.12">
     <animate attributeName="opacity" dur="16s" repeatCount="indefinite"
-      keyTimes="0;0.7136;0.7386;0.98;1"
+      keyTimes="0;0.697;0.722;0.98;1"
       values="0.12;0.35;0;0;0.12"/>
   </circle>
-  <path d="M 728.0124 141.4167 H 737.7396 M 732.876 136.5531 V 146.2803"
+  <path d="M 711.1199 142.1015 H 720.8471 M 715.9835 137.2379 V 146.9651"
     stroke="#39D353" stroke-width="2" stroke-linecap="round" filter="url(#orbGlow)">
     <animate attributeName="opacity" dur="16s" repeatCount="indefinite"
-      keyTimes="0;0.7136;0.7386;0.98;1"
+      keyTimes="0;0.697;0.722;0.98;1"
       values="1;1;0;0;1"/>
   </path>
 </g>
 <g>
   <title>2 contribuições em 2026-08-26</title>
-  <circle cx="812.5124" cy="163.2454" r="9.0789" fill="#8B5CF6" opacity="0.12">
+  <circle cx="795.6198" cy="163.2916" r="9.0789" fill="#8B5CF6" opacity="0.12">
     <animate attributeName="opacity" dur="16s" repeatCount="indefinite"
-      keyTimes="0;0.7918;0.8168;0.98;1"
+      keyTimes="0;0.7752;0.8002;0.98;1"
       values="0.12;0.35;0;0;0.12"/>
   </circle>
-  <path d="M 808.4335 163.2454 H 816.5913 M 812.5124 159.1665 V 167.3243"
+  <path d="M 791.5409 163.2916 H 799.6987 M 795.6198 159.2127 V 167.3705"
     stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" filter="url(#orbGlow)">
     <animate attributeName="opacity" dur="16s" repeatCount="indefinite"
-      keyTimes="0;0.7918;0.8168;0.98;1"
+      keyTimes="0;0.7752;0.8002;0.98;1"
       values="1;1;0;0;1"/>
   </path>
 </g>
